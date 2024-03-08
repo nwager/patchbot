@@ -13,7 +13,7 @@ class GitRepo:
 
     def run(self, cmd: list[str], **kwargs) -> sp.CompletedProcess[bytes]:
         return sp.run(['git', *cmd], cwd=self.repo_path, **kwargs)
-    
+
     def run_check(self, cmd: list[str]) -> tuple[bool, sp.CompletedProcess[bytes]]:
         completed = self.run(
             cmd, stdout=sp.DEVNULL, stderr=sp.DEVNULL
@@ -46,12 +46,12 @@ class CommitChecker:
     def __init__(self, mainline_repo: GitRepo):
         self.mainline_repo = mainline_repo
         self.buglink_cache = [] # stores valid buglink urls
-    
+
     def check_commit(self, commit: GitCommit):
         print(f'>>> Processing commit {commit.short_sha}: \"{commit.subject}\"')
 
         ret = (
-            self.check_buglink(commit) 
+            self.check_buglink(commit)
             and self.check_provenance(commit)
             and self.check_signoff(commit)
         )
@@ -66,7 +66,7 @@ class CommitChecker:
         if not line_match:
             print('No BugLink found')
             return False
-    
+
         ret = True
         line_idx, buglink_match = line_match
         buglink = buglink_match.group(1)
@@ -94,12 +94,12 @@ class CommitChecker:
                 self.buglink_cache.append(buglink)
 
         return ret
-    
+
     def check_provenance(self, commit: GitCommit) -> bool:
         message_lines = commit.message.splitlines()
         if re.compile(r'^(NVIDIA|UBUNTU): SAUCE:').match(commit.subject):
             return True # sauce patch, no upstream provenance
-        
+
         line_match = match_and_idx(message_lines, re.compile(r'(cherry.?pick|back.?port).*\s([a-z0-9]+)\)?$'))
         if not line_match:
             print('Upstream commit but no cherry pick found')
@@ -112,18 +112,18 @@ class CommitChecker:
         except ValueError as e:
             print(e)
             return False
-        
+
         if commit.subject != upstream_commit.subject:
             print('Commits do not match')
             return False
-        
+
         ret = True
-        
+
         if commit.author_name != upstream_commit.author_name \
             and commit.author_email != upstream_commit.author_email:
             print('Commit authors do not match')
             ret = False
-        
+
         if commit.date != upstream_commit.date:
             print('Commit dates do not match')
             ret = False
@@ -135,11 +135,11 @@ class CommitChecker:
         upstream_lines = upstream_commit.message.splitlines()
         if message_lines[line_idx-2] != upstream_lines[-1]:
             print('Provenance message should occur after original message'
-                  + 'and before the applier signoff, preceded by a newline')
+                  + ' and before the applier signoff, preceded by a newline')
             ret = False
-        
+
         return ret
-    
+
     def check_signoff(self, commit: GitCommit) -> bool:
         if f'{commit.author_name} <{commit.author_email}>' not in commit.message:
             print('No signoff from author')
@@ -164,9 +164,9 @@ def main():
     parser.add_argument('-p', '--patch-ref',
                         help='Ref of tip of patches',
                         required=True)
-    
+
     args = parser.parse_args()
-    
+
     repo = GitRepo(args.patch_repo)
     commits = [
         GitCommit(repo, sha) for sha in
@@ -178,7 +178,7 @@ def main():
     for commit in commits:
         if checker.check_commit(commit):
             num_pass += 1
-    
+
     print(f'Results {num_pass}/{len(commits)} patches passed')
 
 def match_and_idx(lines: list[str], pattern: re.Pattern) -> tuple[int, re.Match] | None:
