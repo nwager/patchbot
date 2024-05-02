@@ -110,6 +110,7 @@ class CommitChecker:
         try:
             upstream_commit = GitCommit(self.mainline_repo, cp_sha)
         except ValueError as e:
+            print('Upstream commit %s not found' % upstream_commit.sha)
             print(e)
             return False
 
