@@ -50,13 +50,13 @@ class CommitChecker:
     def check_commit(self, commit: GitCommit):
         print(f'>>> Processing commit {commit.short_sha}: \"{commit.subject}\"')
 
-        ret = (
-            self.check_buglink(commit)
-            and self.check_provenance(commit)
-            and self.check_signoff(commit)
-        )
+        results = [
+            self.check_buglink(commit),
+            self.check_provenance(commit),
+            self.check_signoff(commit),
+        ]
 
-        return ret
+        return all(results)
 
     def check_buglink(self, commit: GitCommit) -> bool:
         BUGLINK_PATTERN = r'^BugLink: ([^ ]+)$'
