@@ -134,9 +134,12 @@ class CommitChecker:
             ret = False
 
         upstream_lines = upstream_commit.message.splitlines()
-        if message_lines[line_idx-2] != upstream_lines[-1]:
+        if not (
+            (message_lines[line_idx-1].strip() == "" and message_lines[line_idx-2] == upstream_lines[-1])
+            or message_lines[line_idx-1] == upstream_lines[-1]
+        ):
             print('Provenance message should occur after original message'
-                  + ' and before the applier signoff, preceded by a newline')
+                  + ' and before the applier signoff, optionally preceded by a newline')
             ret = False
 
         return ret
