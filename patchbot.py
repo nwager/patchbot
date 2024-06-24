@@ -156,18 +156,14 @@ def main():
         prog='patchbot.py',
         description='Performs basic checks on Nvidia patch formatting',
     )
-    parser.add_argument('-r', '--patch-repo',
-                        help='Path to the repo with the patches',
-                        required=True)
-    parser.add_argument('-m', '--mainline-repo',
-                        help='Path to Linux mainline repo',
-                        required=True)
-    parser.add_argument('-b', '--base-ref',
-                        help='Ref of the base where patches are applied on top of',
-                        required=True)
-    parser.add_argument('-p', '--patch-ref',
-                        help='Ref of tip of patches',
-                        required=True)
+    parser.add_argument('-r', '--patch-repo', default='.',
+                        help='Path to the repo with the patches')
+    parser.add_argument('-m', '--mainline-repo', default=f'{os.path.expanduser("~")}/linux/linux_mainline',
+                        help='Path to Linux mainline repo')
+    parser.add_argument('base_ref',
+                        help='Ref of the base where patches are applied on top of')
+    parser.add_argument('patch_ref',
+                        help='Ref of tip of patches')
 
     args = parser.parse_args()
 
