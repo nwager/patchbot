@@ -100,6 +100,9 @@ class CommitChecker:
         if re.compile(r'^(NVIDIA|UBUNTU): SAUCE:').match(commit.subject):
             return True # sauce patch, no upstream provenance
 
+        if re.compile(r'^UBUNTU:').match(commit.subject):
+            return True # other Ubuntu-specific patch, no upstream provenance
+
         line_match = match_and_idx(message_lines, re.compile(r'(cherry.?pick|back.?port).*\s([a-z0-9]+)\)?$'))
         if not line_match:
             print('Upstream commit but no cherry pick found')
