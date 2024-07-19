@@ -161,7 +161,7 @@ def main():
     )
     parser.add_argument('-r', '--patch-repo', default='.',
                         help='Path to the repo with the patches')
-    parser.add_argument('-m', '--mainline-repo', default=f'{os.path.expanduser("~")}/linux/linux_mainline',
+    parser.add_argument('-m', '--mainline-repo', default=f'{os.path.expanduser("~")}/linux/mainline',
                         help='Path to Linux mainline repo')
     parser.add_argument('base_ref',
                         help='Ref of the base where patches are applied on top of')
