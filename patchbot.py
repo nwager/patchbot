@@ -84,7 +84,7 @@ class CommitChecker:
             ret = False
         elif buglink not in self.buglink_cache:
             status_code = int(sp.run(
-                f'curl -I -s -o /dev/null -w \"%{{http_code}}\" buglink',
+                f'curl -I -s -o /dev/null -w \"%{{http_code}}\" {buglink}',
                 stdout=sp.PIPE, stderr=sp.DEVNULL, shell=True
             ).stdout.decode('utf-8'))
 
