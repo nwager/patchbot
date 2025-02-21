@@ -109,17 +109,17 @@ class CommitChecker:
             print('Upstream commit but no cherry pick found')
             return False
 
-        line_idx, cp_match = line_match
-        cp_type = cp_match.group(1)
-        cp_sha = cp_match.group(2)
-        cp_repo = cp_match.group(3)
+        line_idx, prov_match = line_match
+        prov_type = prov_match.group(1)
+        prov_sha = prov_match.group(2)
+        prov_repo = prov_match.group(3)
 
-        if cp_repo:
-            print(f'NOTE: Commit {cp_type} from non-mainline repo {cp_repo}. Manual verification required.')
+        if prov_repo:
+            print(f'NOTE: Commit {prov_type} from non-mainline repo {prov_repo}. Manual verification required.')
             return True
         else:
             try:
-                upstream_commit = GitCommit(self.mainline_repo, cp_sha)
+                upstream_commit = GitCommit(self.mainline_repo, prov_sha)
             except ValueError as e:
                 print('Upstream commit %s not found' % upstream_commit.sha)
                 print(e)
