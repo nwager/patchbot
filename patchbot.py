@@ -103,7 +103,7 @@ class CommitChecker:
         if re.compile(r'UBUNTU:').search(commit.subject):
             return True # other Ubuntu-specific patch, no upstream provenance
 
-        line_match = match_and_idx(message_lines, re.compile(r'^\((cherry picked|backported) from commit ([a-z0-9]+)( .*)?\)$'))
+        line_match = match_and_idx(message_lines, re.compile(r'^\((cherry picked|backported) from commit ([a-z0-9]+)( (.*))?\)$'))
 
         if not line_match:
             print('Upstream commit but no cherry pick found')
@@ -112,9 +112,9 @@ class CommitChecker:
         line_idx, prov_match = line_match
         prov_type = prov_match.group(1)
         prov_sha = prov_match.group(2)
-        prov_repo = prov_match.group(3)
+        prov_repo = prov_match.group(4)
 
-        if prov_repo:
+        if prov_repo and prov_repo not in ['linux-next']:
             print(f'NOTE: Commit {prov_type} from non-mainline repo {prov_repo}. Manual verification required.')
             return True
         else:
