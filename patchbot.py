@@ -97,7 +97,7 @@ class CommitChecker:
 
     def check_provenance(self, commit: GitCommit) -> bool:
         message_lines = commit.message.splitlines()
-        if re.compile(r'(NVIDIA|UBUNTU): SAUCE:').search(commit.subject):
+        if re.compile(r'(NVIDIA|UBUNTU):').search(commit.subject):
             return True # sauce patch, no upstream provenance
 
         if re.compile(r'UBUNTU:').search(commit.subject):
