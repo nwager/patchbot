@@ -112,13 +112,18 @@ class CommitChecker:
             return True # other Ubuntu-specific patch, no upstream provenance
 
         # Ignore nvbug links
-        nvbug_match = match_and_idx(message_lines, re.compile(r'(http|https)://nvbug.*'))
-        if nvbug_match:
-            line_idx = nvbug_match[0]
-            message_lines.pop(line_idx)
-            # Remove trailing newline if needed
-            if len(message_lines) > line_idx and not message_lines[line_idx].strip():
+        while True:
+            # TODO: Looping all of this is less efficient than just having
+            #       match_and_idx return ALL matching indices
+            nvbug_match = match_and_idx(message_lines, re.compile(r'(http|https)://nvbug.*'))
+            if nvbug_match:
+                line_idx = nvbug_match[0]
                 message_lines.pop(line_idx)
+                # Remove trailing newline if needed
+                if len(message_lines) > line_idx and not message_lines[line_idx].strip():
+                    message_lines.pop(line_idx)
+            else:
+                break
 
         # Reconstruct commit message after trimming ignored lines
         cleaned_message = '\n'.join(message_lines)
