@@ -43,9 +43,10 @@ class GitCommit:
         self.body = log_format(r'%b')
 
 class CommitChecker:
-    def __init__(self, mainline_repo: GitRepo):
+    def __init__(self, mainline_repo: GitRepo, ignore_buglink=False):
         self.mainline_repo = mainline_repo
         self.buglink_cache = [] # stores valid buglink urls
+        self.ignore_buglink = ignore_buglink
 
     def check_commit(self, commit: GitCommit):
         print(f'>>> Processing commit {commit.short_sha}: \"{commit.subject}\"')
@@ -59,6 +60,13 @@ class CommitChecker:
         return all(results)
 
     def check_buglink(self, commit: GitCommit) -> bool:
+        if self.ignore_buglink:
+            return True
+
+        # Embargoed patches can't have public bugs, so they don't need a BugLink
+        if re.compile(r'^(EMBARGOED|\[EMBARGOED\])').search(commit.subject):
+            return True
+
         BUGLINK_PATTERN = r'^BugLink: ([^ ]+)$'
         message_lines = commit.message.splitlines()
 
@@ -187,6 +195,8 @@ def main():
                         help='Ref of the base where patches are applied on top of')
     parser.add_argument('patch_ref',
                         help='Ref of tip of patches')
+    parser.add_argument('--ignore-buglink', action='store_true',
+                        help='Don\'t check for BugLinks')
 
     args = parser.parse_args()
 
@@ -196,7 +206,7 @@ def main():
         repo.run_stdout(['log', '--format=%H', f'{args.base_ref}..{args.patch_ref}'])[0].splitlines()
     ]
 
-    checker = CommitChecker(GitRepo(args.mainline_repo))
+    checker = CommitChecker(GitRepo(args.mainline_repo), ignore_buglink=args.ignore_buglink)
     num_pass = 0
     for commit in commits:
         if checker.check_commit(commit):
