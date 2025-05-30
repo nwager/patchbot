@@ -98,6 +98,7 @@ class CommitChecker:
 
             if status_code >= 400:
                 print('Invalid BugLink')
+                ret = False
             else:
                 self.buglink_cache.append(buglink)
 
