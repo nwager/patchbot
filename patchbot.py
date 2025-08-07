@@ -183,7 +183,8 @@ class CommitChecker:
         return ret
 
     def check_signoff(self, commit: GitCommit) -> bool:
-        if f'{commit.author_name} <{commit.author_email}>' not in commit.message:
+        # Only check for email because sometimes the author name differs from the SOB
+        if f'<{commit.author_email}>' not in commit.message:
             print('No signoff from author')
             return False
         return True
