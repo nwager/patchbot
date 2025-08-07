@@ -5,6 +5,9 @@ import os
 import subprocess as sp
 import re
 
+# Pass/fail result and a list of reasons (can be empty)
+Result = tuple[bool, list[str]]
+
 class GitRepo:
     def __init__(self, repo_path: str):
         self.repo_path = os.path.abspath(repo_path)
@@ -48,7 +51,7 @@ class CommitChecker:
         self.buglink_cache = [] # stores valid buglink urls
         self.ignore_buglink = ignore_buglink
 
-    def check_commit(self, commit: GitCommit):
+    def check_commit(self, commit: GitCommit) -> tuple[bool, list[str]]:
         print(f'>>> Processing commit {commit.short_sha}: \"{commit.subject}\"')
 
         results = [
@@ -58,38 +61,46 @@ class CommitChecker:
             self.check_fixes(commit),
         ]
 
-        return all(results)
+        status = all(r[0] for r in results)
+        # flatten list of reasons
+        reasons = []
+        for r_list in [r[1] for r in results]:
+            if r_list:
+                reasons.append(*r_list)
 
-    def check_buglink(self, commit: GitCommit) -> bool:
+        return (all(r[0] for r in results), reasons)
+
+    def check_buglink(self, commit: GitCommit) -> Result:
+        reasons = []
         if self.ignore_buglink:
-            return True
+            return (True, reasons)
 
         # Embargoed patches can't have public bugs, so they don't need a BugLink
         if re.compile(r'^(EMBARGOED|\[EMBARGOED\])').search(commit.subject):
-            return True
+            return (True, reasons)
 
         BUGLINK_PATTERN = r'^BugLink: ([^ ]+)$'
         message_lines = commit.message.splitlines()
 
         line_match = match_and_idx(message_lines, re.compile(BUGLINK_PATTERN, re.IGNORECASE))
         if not line_match:
-            print('No BugLink found')
-            return False
+            reasons.append('No BugLink found')
+            return (False, reasons)
 
         ret = True
         line_idx, buglink_match = line_match
         buglink = buglink_match.group(1)
 
         if line_idx != 2:
-            print('BugLink not on correct line')
+            reasons.append('BugLink not on correct line')
             ret = False
 
         if not re.compile(BUGLINK_PATTERN).match(message_lines[line_idx]):
-            print('BugLink does not match format \"BugLink: <URL>\"')
+            reasons.append('BugLink does not match format \"BugLink: <URL>\"')
             ret = False
 
         if 'launchpad' not in buglink:
-            print('BugLink is not a Launchpad link')
+            reasons.append('BugLink is not a Launchpad link')
             ret = False
         elif buglink not in self.buglink_cache:
             status_code = int(sp.run(
@@ -98,20 +109,21 @@ class CommitChecker:
             ).stdout.decode('utf-8'))
 
             if status_code >= 400:
-                print('Invalid BugLink')
+                reasons.append('Invalid BugLink')
                 ret = False
             else:
                 self.buglink_cache.append(buglink)
 
-        return ret
+        return (ret, reasons)
 
-    def check_provenance(self, commit: GitCommit) -> bool:
+    def check_provenance(self, commit: GitCommit) -> Result:
+        reasons = []
         message_lines = commit.message.splitlines()
         if re.compile(r'(NVIDIA|UBUNTU):').search(commit.subject):
-            return True # sauce or other Ubuntu-specific patch, no upstream provenance
+            return (True, reasons) # sauce or other Ubuntu-specific patch, no upstream provenance
 
         if re.compile(r'((NVIDIA:|SAUCE:) )?Revert').search(commit.subject):
-            return True # Revert patch, doesn't need provenance
+            return (True, reasons) # Revert patch, doesn't need provenance
 
         # Ignore nvbug links
         while True:
@@ -133,8 +145,8 @@ class CommitChecker:
         line_match = match_and_idx(message_lines, re.compile(r'^\((cherry picked|backported) from commit ([a-z0-9]+)( (.*))?\)$'))
 
         if not line_match:
-            print('Upstream commit but no cherry pick found')
-            return False
+            reasons.append('Upstream commit but no cherry pick found')
+            return (False, reasons)
 
         line_idx, prov_match = line_match
         prov_type = prov_match.group(1)
@@ -142,33 +154,33 @@ class CommitChecker:
         prov_repo = prov_match.group(4)
 
         if prov_repo and prov_repo not in ['linux-next']:
-            print(f'NOTE: Commit {prov_type} from non-mainline repo {prov_repo}. Manual verification required.')
-            return True
+            reasons.append(f'NOTE: Commit {prov_type} from non-mainline repo {prov_repo}. Manual verification required.')
+            return (True, reasons)
         else:
             try:
                 upstream_commit = GitCommit(self.mainline_repo, prov_sha)
             except ValueError as e:
-                print('Upstream commit %s not found' % upstream_commit.sha)
+                reasons.append('Upstream commit %s not found' % upstream_commit.sha)
                 print(e)
-                return False
+                return (False, reasons)
 
         if commit.subject != upstream_commit.subject:
-            print('Commits do not match')
-            return False
+            reasons.append('Commits do not match')
+            return (False, reasons)
 
         ret = True
 
         if commit.author_name != upstream_commit.author_name \
             and commit.author_email != upstream_commit.author_email:
-            print('Commit authors do not match')
+            reasons.append('Commit authors do not match')
             ret = False
 
         if commit.date != upstream_commit.date:
-            print('Commit dates do not match')
+            reasons.append('Commit dates do not match')
             ret = False
 
         if upstream_commit.body not in cleaned_message:
-            print('Original commit message body has been modified')
+            reasons.append('Original commit message body has been modified')
             ret = False
 
         upstream_lines = upstream_commit.message.splitlines()
@@ -176,27 +188,30 @@ class CommitChecker:
             (message_lines[line_idx-1].strip() == "" and message_lines[line_idx-2] == upstream_lines[-1])
             or message_lines[line_idx-1] == upstream_lines[-1]
         ):
-            print('Provenance message should occur after original message'
+            reasons.append('Provenance message should occur after original message'
                   + ' and before the applier signoff, optionally preceded by a newline')
             ret = False
 
-        return ret
+        return (ret, reasons)
 
-    def check_signoff(self, commit: GitCommit) -> bool:
+    def check_signoff(self, commit: GitCommit) -> Result:
+        reasons = []
         # Only check for email because sometimes the author name differs from the SOB
         if f'<{commit.author_email}>' not in commit.message:
-            print('No signoff from author')
-            return False
-        return True
+            reasons.append('No signoff from author')
+            return (False, reasons)
+        return (True, reasons)
 
-    def check_fixes(self, commit: GitCommit) -> bool:
+    def check_fixes(self, commit: GitCommit) -> Result:
+        reasons = []
+
         num_fixes = len(re.compile(r'^Fixes:', re.MULTILINE).findall(commit.message))
 
         FIXES_PATTERN = r'^Fixes: ([a-fA-F0-9]+) \(\"(.*)\"\)$'
         fixes = re.compile(FIXES_PATTERN, re.MULTILINE).findall(commit.message)
 
         if num_fixes != len(fixes):
-            print('Some "Fixes:" lines may be malformed')
+            reasons.append('Some "Fixes:" lines may be malformed')
 
         r = True
         for f in fixes:
@@ -206,9 +221,9 @@ class CommitChecker:
                     )
             if not output:
                 r = False
-                print(f'Unsatisfied "Fixes: {sha} ("{subject}")"')
+                reasons.append(f'Unsatisfied "Fixes: {sha} ("{subject}")"')
 
-        return r
+        return (r, reasons)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -236,11 +251,24 @@ def main():
 
     checker = CommitChecker(GitRepo(args.mainline_repo), ignore_buglink=args.ignore_buglink)
     num_pass = 0
+    failed: list[tuple[GitCommit, Result]] = []
     for commit in commits:
-        if checker.check_commit(commit):
+        result = checker.check_commit(commit)
+        if result[0]:
             num_pass += 1
+        else:
+            failed.append((commit, result))
+        for r in result[1]:
+            print(r)
 
     print(f'Results {num_pass}/{len(commits)} patches passed')
+
+    if failed:
+        print(f'\nFailed patches:')
+        for c, r in failed:
+            print(f'{c.short_sha} ("{c.subject}")')
+            for reason in r[1]:
+                print('    ' + reason)
 
 def match_and_idx(lines: list[str], pattern: re.Pattern) -> tuple[int, re.Match] | None:
     for i, line in enumerate(lines):
