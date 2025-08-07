@@ -55,6 +55,7 @@ class CommitChecker:
             self.check_buglink(commit),
             self.check_provenance(commit),
             self.check_signoff(commit),
+            self.check_fixes(commit),
         ]
 
         return all(results)
@@ -187,6 +188,26 @@ class CommitChecker:
             return False
         return True
 
+    def check_fixes(self, commit: GitCommit) -> bool:
+        num_fixes = len(re.compile(r'^Fixes:', re.MULTILINE).findall(commit.message))
+
+        FIXES_PATTERN = r'^Fixes: ([a-fA-F0-9]+) \(\"(.*)\"\)$'
+        fixes = re.compile(FIXES_PATTERN, re.MULTILINE).findall(commit.message)
+
+        if num_fixes != len(fixes):
+            print('Some "Fixes:" lines may be malformed')
+
+        r = True
+        for f in fixes:
+            sha, subject = f
+            output, error = commit.repo.run_stdout(
+                    ['log', '--max-count', '1', '--grep', f'^{re.escape(subject)}']
+                    )
+            if not output:
+                r = False
+                print(f'Unsatisfied "Fixes: {sha} ("{subject}")"')
+
+        return r
 
 def main():
     parser = argparse.ArgumentParser(
