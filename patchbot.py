@@ -52,8 +52,6 @@ class CommitChecker:
         self.ignore_buglink = ignore_buglink
 
     def check_commit(self, commit: GitCommit) -> tuple[bool, list[str]]:
-        print(f'>>> Processing commit {commit.short_sha}: \"{commit.subject}\"')
-
         results = [
             self.check_buglink(commit),
             self.check_provenance(commit),
@@ -278,7 +276,8 @@ def main():
     checker = CommitChecker(GitRepo(args.mainline_repo), ignore_buglink=args.ignore_buglink)
     num_pass = 0
     failed: list[tuple[GitCommit, Result]] = []
-    for commit in commits:
+    for i, commit in enumerate(commits):
+        print(f'>>> Processing commit {i+1}/{len(commits)}: {commit.short_sha} ("{commit.subject}")')
         result = checker.check_commit(commit)
         if result[0]:
             num_pass += 1
@@ -287,7 +286,7 @@ def main():
         for r in result[1]:
             print(r)
 
-    print(f'Results {num_pass}/{len(commits)} patches passed')
+    print(f'Results: {num_pass}/{len(commits)} patches passed')
 
     if failed:
         print(f'\nFailed patches:')
