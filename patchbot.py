@@ -59,6 +59,7 @@ class CommitChecker:
             self.check_provenance(commit),
             self.check_signoff(commit),
             self.check_fixes(commit),
+            self.check_upstream_fixed_by(commit),
         ]
 
         status = all(r[0] for r in results)
@@ -224,6 +225,31 @@ class CommitChecker:
                 reasons.append(f'Unsatisfied "Fixes: {sha} ("{subject}")"')
 
         return (r, reasons)
+
+    def check_upstream_fixed_by(self, commit: GitCommit) -> Result:
+        reasons = []
+
+        if 'SAUCE:' in commit.subject:
+            # SAUCE commits will not have upstream fixes
+            return (True, reasons)
+
+        output, _error = self.mainline_repo.run_stdout(
+                ['log', 'master', '--format=%H', '--grep', f'Fixes:.*{re.escape(commit.subject)}']
+                )
+        output = output.strip().splitlines()
+        if not output:
+            return (True, reasons)
+
+        for sha in output:
+            try:
+                fixer = GitCommit(self.mainline_repo, sha)
+            except ValueError as e:
+                print('Fixer commit SHA is not a valid commit')
+                raise e
+
+            reasons.append(f'Fixed by: {fixer.short_sha} ("{fixer.subject}")')
+
+        return (False, reasons)
 
 def main():
     parser = argparse.ArgumentParser(
