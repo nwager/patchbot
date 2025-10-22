@@ -65,7 +65,7 @@ class CommitChecker:
         reasons = []
         for r_list in [r[1] for r in results]:
             if r_list:
-                reasons.append(*r_list)
+                reasons.extend(r_list)
 
         return (all(r[0] for r in results), reasons)
 
