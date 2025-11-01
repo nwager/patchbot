@@ -245,9 +245,14 @@ class CommitChecker:
                 print('Fixer commit SHA is not a valid commit')
                 raise e
 
-            reasons.append(f'Fixed by: {fixer.short_sha} ("{fixer.subject}")')
+            # Check if fixer is already in tree
+            output, _error = commit.repo.run_stdout(
+                    ['log', '--max-count', '1', '--grep', f'^{re_escape(fixer.subject)}']
+                    )
+            if not output:
+                reasons.append(f'Fixed by: {fixer.short_sha} ("{fixer.subject}")')
 
-        return (False, reasons)
+        return (not reasons, reasons)
 
 def main():
     parser = argparse.ArgumentParser(
