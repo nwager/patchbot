@@ -216,7 +216,7 @@ class CommitChecker:
         for f in fixes:
             sha, subject = f
             output, error = commit.repo.run_stdout(
-                    ['log', '--max-count', '1', '--grep', f'^{re.escape(subject)}']
+                    ['log', '--max-count', '1', '--grep', f'^{re_escape(subject)}']
                     )
             if not output:
                 r = False
@@ -232,7 +232,7 @@ class CommitChecker:
             return (True, reasons)
 
         output, _error = self.mainline_repo.run_stdout(
-                ['log', 'master', '--format=%H', '--grep', f'Fixes:.*{re.escape(commit.subject)}']
+                ['log', 'master', '--format=%H', '--grep', f'Fixes:.*{re_escape(commit.subject)}']
                 )
         output = output.strip().splitlines()
         if not output:
@@ -301,6 +301,9 @@ def match_and_idx(lines: list[str], pattern: re.Pattern) -> tuple[int, re.Match]
         if line_match:
             return (i, line_match)
     return None
+
+def re_escape(s: str) -> str:
+    return re.sub(r'(["\'\[\].])', r'\\\1', s)
 
 if __name__ == '__main__':
     main()
