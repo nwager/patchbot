@@ -308,7 +308,7 @@ def match_and_idx(lines: list[str], pattern: re.Pattern) -> tuple[int, re.Match]
     return None
 
 def re_escape(s: str) -> str:
-    return re.sub(r'(["\'\[\].])', r'\\\1', s)
+    return re.sub(r'(["\'\[\].*+])', r'\\\1', s)
 
 if __name__ == '__main__':
     main()
