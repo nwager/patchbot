@@ -275,7 +275,7 @@ def main():
     repo = GitRepo(args.patch_repo)
     commits = [
         GitCommit(repo, sha) for sha in
-        repo.run_stdout(['log', '--format=%H', f'{args.base_ref}..{args.patch_ref}'])[0].splitlines()
+        repo.run_stdout(['log', '--format=%H', '--reverse', f'{args.base_ref}..{args.patch_ref}'])[0].splitlines()
     ]
 
     checker = CommitChecker(GitRepo(args.mainline_repo), ignore_buglink=args.ignore_buglink)
